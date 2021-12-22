@@ -1,0 +1,95 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+import os
+import sys
+import json
+import traceback
+
+import cv2
+
+from road_segmentation import RoadSegmentation
+
+
+def get_paths():
+    # 基本パス指定
+    prefix = '/opt/ml/'
+
+    output_path = os.path.join(prefix, 'output')
+    model_path = os.path.join(prefix, 'model')
+    param_path = os.path.join(prefix, 'input/config/hyperparameters.json')
+
+    paths = {
+        "output_path": output_path,
+        "model_path": model_path,
+        "param_path": param_path,
+    }
+
+    # チャネルパス指定
+    input_path = prefix + 'input/data'
+
+    input_movie_path = os.path.join(input_path, 'movie')
+    paths["input_movie_path"] = input_movie_path
+
+    return paths
+
+
+def run_inference():
+    paths = get_paths()
+
+    print('Starting the inference.')
+    try:
+        # ハイパーパラメータ取得
+        with open(paths['param_path'], 'r') as tc:
+            training_params = json.load(tc)
+
+        max_save_frames = int(training_params.get('max_save_frames', 1))
+
+        # 入力動画パス
+        movie_files = [
+            os.path.join(paths['input_movie_path'], file)
+            for file in os.listdir(paths['input_movie_path'])
+        ]
+        print(movie_files)
+        video_capture = cv2.VideoCapture(movie_files[0])
+
+        # モデル読み込み、ONNXセッション準備
+        road_seg_model = RoadSegmentation('model/road_segmentation.onnx')
+
+        save_count = 0
+
+        while True:
+            # フレーム取得
+            ret, frame = video_capture.read()
+            if not ret:
+                break
+
+            # 推論
+            road_seg_map = road_seg_model.inference(frame)
+            debug_image = road_seg_model.draw(frame, road_seg_map)
+
+            # jpg画像書き込み
+            path_image_file = os.path.join(paths["model_path"],
+                                           '{:06}.jpg'.format(save_count))
+            cv2.imwrite(path_image_file, debug_image)
+
+            # 最大保存枚数チェック
+            save_count += 1
+            if save_count >= max_save_frames:
+                break
+
+        print('Inference complete.')
+        sys.exit(0)
+
+    except Exception as e:
+        trc = traceback.format_exc()
+        with open(os.path.join(paths["output_path"], 'failure'), 'w') as s:
+            s.write('Exception during training: ' + str(e) + '\n' + trc)
+
+        print('Exception during training: ' + str(e) + '\n' + trc,
+              file=sys.stderr)
+        sys.exit(255)
+
+
+if __name__ == '__main__':
+    run_inference()

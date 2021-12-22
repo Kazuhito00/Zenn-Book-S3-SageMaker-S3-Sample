@@ -1,0 +1,4 @@
+numpy
+onnx
+onnxruntime-gpu==1.9.0
+opencv-python
