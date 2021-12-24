@@ -8,5 +8,5 @@
 高橋かずひと(https://twitter.com/KzhtTkhs)
  
 # License 
-mediapipe-python-sample is under [Apache-2.0 License](LICENSE).
+Zenn-Book-S3-SageMaker-S3-Sample is under [Apache-2.0 License](LICENSE).
 
